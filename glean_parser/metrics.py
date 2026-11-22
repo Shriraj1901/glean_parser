@@ -485,6 +485,11 @@ class Object(Metric):
 
     @staticmethod
     def _validate_substructure(structure):
+        # Validation rewrites parts of the structure. Never do that on the
+        # dict we were given: it comes straight from the YAML, where anchors
+        # and aliases can make it reachable more than once.
+        structure = structure.copy()
+
         extra = set(structure.keys()) - Object.ALLOWED_TOPLEVEL
         if extra:
             extra = ", ".join(extra)
@@ -539,9 +544,10 @@ class Object(Metric):
             if "properties" not in structure:
                 raise ValueError("`properties` missing for type `object`")
 
-            for key in structure["properties"]:
-                value = structure["properties"][key]
-                structure["properties"][key] = Object._validate_substructure(value)
+            structure["properties"] = {
+                key: Object._validate_substructure(value)
+                for key, value in structure["properties"].items()
+            }
 
         if structure["type"] == "array":
             if "properties" in structure:

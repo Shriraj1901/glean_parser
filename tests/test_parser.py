@@ -1470,6 +1470,72 @@ def test_object_oneof(structure, num_errors):
     # assert all_metrics.value["category"]["metric"]._generate_structure == structure
 
 
+def test_object_oneof_shared_structure():
+    """
+    YAML anchors and aliases make several metrics share the same `structure`
+    dict. Validating one metric must not change the structure of the others.
+    (In tests the dict is dumped to YAML and loaded again, which turns objects
+    used more than once into anchors and aliases.)
+    """
+    structure = {
+        "type": "array",
+        "items": {
+            "type": "object",
+            "properties": {"value": {"oneOf": [{"type": "number"}]}},
+        },
+    }
+    contents = [
+        {
+            "category": {
+                "first": {"type": "object", "structure": structure},
+                "second": {"type": "object", "structure": structure},
+            }
+        }
+    ]
+
+    contents = [util.add_required(x) for x in contents]
+    all_metrics = parser.parse_objects(contents)
+    errors = list(all_metrics)
+    assert len(errors) == 0, errors
+    assert len(all_metrics.value["category"]) == 2
+    assert (
+        all_metrics.value["category"]["first"]._generate_structure
+        == all_metrics.value["category"]["second"]._generate_structure
+    )
+
+
+def test_object_oneof_shared_substructure():
+    """
+    A YAML alias can also reuse a `oneOf` substructure within a single
+    `structure`. Validating it once must not change what the alias points to.
+    """
+    shared = {"oneOf": [{"type": "number"}, {"type": "string"}]}
+    structure = {
+        "type": "object",
+        "properties": {
+            "a": shared,
+            "b": shared,
+            "c": {"type": "array", "items": shared},
+        },
+    }
+    contents = [{"category": {"metric": {"type": "object", "structure": structure}}}]
+
+    contents = [util.add_required(x) for x in contents]
+    all_metrics = parser.parse_objects(contents)
+    errors = list(all_metrics)
+    assert len(errors) == 0, errors
+    assert len(all_metrics.value["category"]) == 1
+    oneof = {"type": "oneof", "subtypes": ["number", "string"]}
+    assert all_metrics.value["category"]["metric"]._generate_structure == {
+        "type": "object",
+        "properties": {
+            "a": oneof,
+            "b": oneof,
+            "c": {"type": "array", "items": oneof},
+        },
+    }
+
+
 def test_dual_labeled_counter():
     """
     Ensure that `dual_labeled_counter` metrics parse properly.

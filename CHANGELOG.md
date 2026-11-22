@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- BUGFIX: Validating an `object` metric no longer rewrites its `structure` in place. A `structure` containing `oneOf` can now be reused through YAML anchors and aliases, between metrics or inside one structure, without failing with "Found additional fields: subtypes"
+
 ## 22.1.1
 
 - BUGFIX: Exclude `glean_*_info` and `all-pings` pseudo-pings from the `UNKNOWN_PING_REFERENCED` lint ([#897](https://github.com/mozilla/glean_parser/pull/897))
